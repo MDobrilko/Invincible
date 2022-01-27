@@ -1,4 +1,10 @@
-use bevy::{input::{Input, mouse::MouseWheel}, math::Vec3, prelude::*, core::Time};
+use bevy::{
+    core::Time,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    input::{mouse::MouseWheel, Input},
+    math::Vec3,
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -6,101 +12,105 @@ fn main() {
             title: String::from("Invincible"),
             ..Default::default()
         })
+        .init_resource::<Game>()
+        .add_state(GameState::Playing)
         .add_plugins(DefaultPlugins)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-        .add_startup_system(startup)
+        .add_startup_system(setup)
         .add_system(spawner)
         .run();
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+#[derive(Default)]
+struct Game {
+    map: Map,
+    camera_should_focus: Vec3,
+    camera_is_focus: Vec3,
 }
 
-#[derive(Component)]
-struct WorldCamera;
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+enum GameState {
+    Playing,
+}
 
-#[derive(Component)]
-struct CoordText;
+struct Map {
+    size: (usize, usize),
+    cells: Vec<Vec<Cell>>,
+}
 
-fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    println!("njfviujv");
-    commands.spawn_bundle(UiCameraBundle::default());
-    commands
-        .spawn_bundle(TextBundle {
-            style: Style {
-				align_self: AlignSelf::FlexStart,
-				position: Rect {
-					bottom: Val::Percent(50.),
-					..Default::default()
-				},
-                ..Default::default()
-            },
-            text: Text::with_section(
-                "RUST - IMBAAAAAAA",
-                TextStyle {
-                    font: asset_server.load("fonts/Dongle-Regular.ttf"),
-                    font_size: 50.,
-                    color: Color::WHITE,
+impl Default for Map {
+    fn default() -> Self {
+        let default_size = (128, 128);
+        let cells = vec![vec![Cell::default(); default_size.1]; default_size.0];
+
+        Self {
+            size: default_size,
+            cells,
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+struct Cell {}
+
+fn setup(mut commands: Commands, game: ResMut<Game>, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    let ground_textures: [Handle<Image>; 2] = [
+        asset_server.load("ground12.png"),
+        asset_server.load("ground22.png"),
+    ];
+
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+
+    let mut rng = thread_rng();
+    for (i, rows) in game.map.cells.iter().enumerate() {
+        for (j, cell) in rows.iter().enumerate() {
+            commands.spawn_bundle(SpriteBundle {
+                texture: ground_textures.choose(&mut rng).unwrap().clone(),
+                transform: Transform {
+                    translation: Vec3::new(i as f32 * 16., j as f32 * 16., 0.),
+                    ..Default::default()
                 },
-                Default::default(),
-            ),
-            ..Default::default()
-        })
-        .insert(CoordText);
+                ..Default::default()
+            });
+        }
+    }
 
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(WorldCamera);
-    let image: Handle<Image> = asset_server.load("картинка.png");
-    commands.spawn_bundle(SpriteBundle {
-        texture: image,
-        transform: Transform {
-            translation: Vec3::new(0., 0., 0.),
-            scale: Vec3::new(0.5, 0.5, 0.),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
+    println!("{} {}", game.map.cells.len(), game.map.cells[0].len());
 }
 
 fn spawner(
-	time: Res<Time>,
+    time: Res<Time>,
     keyboard: Res<Input<KeyCode>>,
-	mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut camera_query: Query<(&mut Transform, &mut OrthographicProjection), With<WorldCamera>>,
-    mut text_query: Query<&mut Text, With<CoordText>>,
-	asset_server: Res<AssetServer>
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut camera_query: Query<(&mut Transform, &mut OrthographicProjection)>,
 ) {
     for (mut transform, mut ortho) in camera_query.iter_mut() {
         let mut direction = Vec3::ZERO;
 
         if keyboard.pressed(KeyCode::W) {
-            direction += Vec3::new(0., -2., 0.);
+            direction += Vec3::new(0., 1., 0.);
         };
-		if keyboard.pressed(KeyCode::A) {
-            direction += Vec3::new(2., 0., 0.);
+        if keyboard.pressed(KeyCode::A) {
+            direction += Vec3::new(-1., 0., 0.);
         };
-		if keyboard.pressed(KeyCode::D) {
-            direction += Vec3::new(-2., 0., 0.);
+        if keyboard.pressed(KeyCode::D) {
+            direction += Vec3::new(1., 0., 0.);
         };
         if keyboard.pressed(KeyCode::S) {
-            direction += Vec3::new(0., 2., 0.);
+            direction += Vec3::new(0., -1., 0.);
         }
 
-        transform.translation += time.delta_seconds() * direction * 500.;
-		text_query.get_single_mut().unwrap().sections = vec![TextSection {
-			value: format!("{}", transform.translation.truncate()),
-			style: TextStyle {
-				font: asset_server.load("fonts/Dongle-Regular.ttf"),
-				font_size: 50.,
-				color: Color::WHITE,
-			},
-		}];
+        for event in mouse_wheel_events.iter() {
+            ortho.scale -= event.y * 0.1;
+			if ortho.scale < 0. {
+				ortho.scale = 0.;
+			}
+        }
 
-		for event in mouse_wheel_events.iter() {
-			ortho.scale -= event.y * 0.1;
-		}	
+        transform.translation += time.delta_seconds() * direction * 250.;
     }
 }
