@@ -2,7 +2,7 @@ extern crate bevy_ecs_tilemap as tilemap;
 
 use bevy::{
     core::Time,
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     input::{
         mouse::{MouseButtonInput, MouseWheel},
         Input,
@@ -175,12 +175,12 @@ fn spawner(
         }
 
         for event in mouse_wheel_events.iter() {
-            ortho.scale -= event.y * 0.1;
-            if ortho.scale < 0.1 {
-                ortho.scale = 0.1;
+            transform.scale -= Vec3::new(event.y * 0.1, event.y * 0.1, 0.);
+            if transform.scale[0] < 0.1 {
+                transform.scale = Vec3::new(0.1, 0.1, transform.scale[2]);
             }
         }
-
+    
         transform.translation += time.delta_seconds() * direction * 250.;
     }
 }
