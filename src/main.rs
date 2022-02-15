@@ -15,6 +15,7 @@ use tilemap::prelude::*;
 pub mod camera;
 pub mod input;
 pub mod map;
+mod frame;
 
 use camera::WorldCamera;
 use input::resolve_cursor_position;
@@ -38,6 +39,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(MapPlugin)
+        .add_plugin(frame::FramePlugin)
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .add_startup_system(setup)
         .add_system(spawner)
